@@ -67,5 +67,3 @@ class YoutubeWidget extends Widget {
 			);
 	}
 }
-
-?>

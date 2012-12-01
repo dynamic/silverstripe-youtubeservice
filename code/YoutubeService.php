@@ -380,5 +380,3 @@ class YoutubeService extends RestfulService {
 		return date("i:s", $seconds);
 	}
 }
-
-?>

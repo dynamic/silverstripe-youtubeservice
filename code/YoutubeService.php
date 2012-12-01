@@ -14,14 +14,14 @@ class YoutubeService extends RestfulService {
 	 *
 	 * @var int
 	 */
-	protected static $player_width = 425;
+	protected static $player_width = 640;
 	
 	/**
 	 * Youtube default video height.
 	 *
 	 * @var int
 	 */
-	protected static $player_height = 355;
+	protected static $player_height = 390;
 	
 	/**
 	 * @var int
@@ -105,6 +105,13 @@ class YoutubeService extends RestfulService {
 				'format' => $format
 			);
 		}
+		
+		$default_params = array(
+			'max-results' => 50,
+			'start-index' => 1,
+			'orderby' => null,
+			'format' => $format
+		);
 			
 		$params = array_merge($params, $default_params);
 		
@@ -114,21 +121,24 @@ class YoutubeService extends RestfulService {
 		
 		//have to make a custom XML object
 		try {
-			$xml =  @new SimpleXMLElement($response->getBody());
+			$xml =  new SimpleXMLElement($response->getBody());
+			//debug::show($xml);
 			
 			$videos = $xml->entry;
-			$results = new DataObjectSet();
+			$results = new ArrayList();
+			//$results = new DataObjectSet();
 			
 			foreach($videos as $video){
 				
 				$data = $this->extractVideoInfo($video); // Get the data requested
-				if(array_key_exists($orderby, self::$sortby_processing)) {
+				/*if(array_key_exists($orderby, self::$sortby_processing)) {
 					$customSortObj = $video->xpath(self::$sortby_processing[$orderby]);
 					$data['customsortby'] = (count($customSortObj)) ? (string)$customSortObj[0] : null;
-				}
+				}*/
 				$results->push(new ArrayData($data));
 			}
 			
+			/*
 			if(array_key_exists($orderby, self::$sortby_processing)) {
 				$results->sort('customsortby', 'DESC');
 				$results = $results->getRange(0, $max_results);
@@ -136,11 +146,17 @@ class YoutubeService extends RestfulService {
 				$this->videoCount = $results->Count();
 				$this->pageCount = 1;
 			} else {
+			*/
 				//get total number of videos
 				$this->videoCount = $this->searchValue($response->getBody(), 'openSearch:totalResults');
 				$this->pageCount = (int)($this->videoCount/$max_results);
-			}
-					
+				
+			//}
+			
+			// add Feed Title
+			$this->FeedTitle = $xml->title;
+			//debug::show($this->FeedTitle);
+
 			return $results;
 		} catch (Exception $e) {
 			user_error("Error occurred in processing YouTube response");
@@ -326,24 +342,26 @@ class YoutubeService extends RestfulService {
 					
 		$data['HTML'] = trim((string)$video->content);
 		$descriptionObj = $mediaentry->xpath("media:description");
-		$data['Description'] = Convert::raw2xml(trim((string)$descriptionObj[0])); // should not contain HTML markup
+		if ($descriptionObj) $data['Description'] = Convert::raw2xml(trim((string)$descriptionObj[0])); // should not contain HTML markup
 		
 		$runtimeSecObj = $mediaentry->xpath('yt:duration/@seconds');
-		$data['RuntimeSec'] = (int)$runtimeSecObj[0]; // Runtime in seconds
-		$data['RuntimeMin'] = $this->convertSecsToMins($data['RuntimeSec']); // Runtime in minutes
-		$data['Runtime'] = $data['RuntimeSec'] < 60 ? $data['RuntimeMin'] . " seconds" : $data['RuntimeMin'] . " minutes"; // Output either xx seconds or xx minutes
-		$data['ShowRuntime'] = $data['RuntimeSec'] == 0 ? false : true; // Only show the runtime if it's longer than 0 seconds
+		if ($runtimeSecObj) {
+			$data['RuntimeSec'] = (int)$runtimeSecObj[0]; // Runtime in seconds
+			$data['RuntimeMin'] = $this->convertSecsToMins($data['RuntimeSec']); // Runtime in minutes
+			$data['Runtime'] = $data['RuntimeSec'] < 60 ? $data['RuntimeMin'] . " seconds" : $data['RuntimeMin'] . " minutes"; // Output either xx seconds or xx minutes
+			$data['ShowRuntime'] = $data['RuntimeSec'] == 0 ? false : true; // Only show the runtime if it's longer than 0 seconds
+		}
 		
 		// get embeddable SWF (format code "5")
 		// @see http://code.google.com/apis/youtube/reference.html#yt_format
 		$urlObj = $mediaentry->xpath('media:content[@yt:format=5]');
-		$data['PlayerURL'] = Convert::raw2xml((string)$urlObj[0]['url']);
+		if ($urlObj) $data['PlayerURL'] = Convert::raw2xml((string)$urlObj[0]['url']);
 		
 		$data['PlayerWidth'] = self::$player_width;
 		$data['PlayerHeight'] = self::$player_height;
 		
 		$thumbnailObjs = $mediaentry->xpath('media:thumbnail');
-		$data['SmallThumbnail'] = new ArrayData(array(
+		if ($thumbnailObjs) $data['SmallThumbnail'] = new ArrayData(array(
 			'URL' => Convert::raw2xml((string)$thumbnailObjs[0]['url']),
 			'Width' => (int)$thumbnailObjs[0]['width'],
 			'Height' => (int)$thumbnailObjs[0]['height'],

@@ -34,25 +34,25 @@ class YoutubeGallery extends Page {
 	protected $_cachedVideos = null;
  
    // add custom fields for this youtube gallery page
-   function getCMSFields($cms) {
+   function getCMSFields() {
    	  // We should uncomment this when you can load and unload javascript files dynamically at any time via Javascript
    	  // See http://open.silverstripe.com/ticket/594
    	  //Requirements::javascript( 'youtubeservice/javascript/YoutubeGallery_CMS.js' );
    	  
-      $fields = parent::getCMSFields($cms);
-      $fields->addFieldToTab("Root.Content.Videos", new DropdownField("Method", "Select ", array(
+      $fields = parent::getCMSFields();
+      $fields->addFieldToTab("Root.Videos", new DropdownField("Method", "Select ", array(
 				'1' => 'Videos containing phrase',
 				'2' => 'Videos by Category or Tag',
 				'3' => 'Videos uploaded by',
 				'4' => 'Favorite videos of',
 				'5' => 'Videos from playlist')));
-      $fields->addFieldToTab("Root.Content.Videos", new TextField("User","Youtube Username"));
-      $fields->addFieldToTab("Root.Content.Videos", new TextField("Query","Search for"));
-      $fields->addFieldToTab("Root.Content.Videos", new TextField("CategoryTag", "Category or Tag"));
-      $fields->addFieldToTab("Root.Content.Videos", new TextField("Playlist", "Playlist ID"));      
-      $fields->addFieldToTab("Root.Content.Videos", new CheckboxField("ShowVideoInPopup", "Show videos in a popup (rather than external link)"));
-      $fields->addFieldToTab("Root.Content.Videos", new NumericField("PerPage", "Per Page", 10));
-      $fields->addFieldToTab("Root.Content.Videos", new DropdownField("Sortby", "Sort by (descending)", array(
+      $fields->addFieldToTab("Root.Videos", new TextField("User","Youtube Username"));
+      $fields->addFieldToTab("Root.Videos", new TextField("Query","Search for"));
+      $fields->addFieldToTab("Root.Videos", new TextField("CategoryTag", "Category or Tag"));
+      $fields->addFieldToTab("Root.Videos", new TextField("Playlist", "Playlist ID"));      
+      $fields->addFieldToTab("Root.Videos", new CheckboxField("ShowVideoInPopup", "Show videos in a popup (rather than external link)"));
+      $fields->addFieldToTab("Root.Videos", new NumericField("PerPage", "Per Page", 10));
+      $fields->addFieldToTab("Root.Videos", new DropdownField("Sortby", "Sort by (descending)", array(
 				'relevance' => 'Relevance',
 				'updated' => 'Most recently updated',
 				'published' => 'Most recently published',
@@ -65,9 +65,10 @@ class YoutubeGallery extends Page {
    }
    
    function YoutubeVideos(){
-		if($this->_cachedVideos) return $this->_cachedVideos;
+		if($this->_cachedVideos) return new PaginatedList($this->_cachedVideos, Controller::curr()->request);
    	
    		$youtube = new YoutubeService();
+   		
 		$page = isset($_GET['page'])? (int)$_GET['page']: 1;
 		$start_index = (($page-1) * $this->PerPage) + 1 ;
 
@@ -91,11 +92,11 @@ class YoutubeGallery extends Page {
 		
 		// caching
 		$this->_cachedVideos = $videos;
-			
-		return $videos;
+		
+		return new PaginatedList($videos, Controller::curr()->request);		
 	}
 
-	function flushCache() {
+	function flushCache($persistent = true) {
 		parent::flushCache();
 		
 		unset($this->_cachedVideos);
